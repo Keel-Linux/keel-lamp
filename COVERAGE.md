@@ -8,17 +8,17 @@ acceptance test of a recipe, docs/org-plan.md section 1).
 
 | File | Test | Lines | Note |
 | --- | --- | --- | --- |
-| tests/lib/boot-test-lib.sh | tests/boot-test.bats (66 tests) | 100 percent (283/283) under kcov | argument parsing, address discovery, deadlines, the container marks, the spec and secret paths, the HTTP, PHP, CGI, Adminer, Webmin, module and diff verdicts, and this recipe's own: the two artefacts and what each declares, the appliance's landing page and the mark on it, the database answering with the declared secret, and the four assertions that the artefact without a server has none |
+| tests/lib/boot-test-lib.sh | tests/boot-test.bats (67 tests) | 100 percent (284/284) under kcov | argument parsing, address discovery, deadlines, the container marks, the spec and secret paths, the HTTP, PHP, CGI, Adminer, Webmin, module and diff verdicts, and this recipe's own: the two artefacts and what each declares, the appliance's landing page and the mark on it, the database answering with the declared secret, and the four assertions that the artefact without a server has none |
 | conf.d/main | the build | integration only | build time script, 0004 pragmatic limits; every line of it is a check on what the parent layer, the shared conf scripts and the unit left behind, so a failed build names the thing that is wrong |
 | tests/boot-test.sh | itself | integration only | the thin main of the acceptance test: keel and LXC as root, run twice in CI, once per artefact |
 
-Total: **100 percent (283/283)**, 66 bats tests. `tests/coverage.sh` fails
+Total: **100 percent (284/284)**, 67 bats tests. `tests/coverage.sh` fails
 below `COVERAGE_THRESHOLD`, which the workflow sets to 100, the measured
 number. It is only ever raised (decision 0006).
 
     $ COVERAGE_THRESHOLD=100 tests/coverage.sh
     kcov line coverage (threshold 100 percent):
-     100.00  283/283  boot-test-lib.sh
+     100.00  284/284  boot-test-lib.sh
 
 This recipe ships no first boot hook and no library of its own, which is why
 one file is measured. The database password hook is the shared tree's
