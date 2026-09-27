@@ -1,16 +1,177 @@
-#!/bin/sh -ex
+#!/bin/bash -ex
+# LAMP, on top of the apache-php layer, with MariaDB carried as a fab unit.
+#
+# This file is the same in both artefacts of this recipe. Nothing in it asks
+# which one is being built; it measures what is in the image and acts on that.
+# HAS_SERVER below is read from dpkg and not from the makefile variable that
+# decided whether the unit was applied, because the makefile variable says
+# what was asked for and dpkg says what happened. traps.md: asserting the
+# configuration is not asserting the behaviour.
+#
+# What has already run, in this order (decision 0010 measured it):
+#   the parent layer, apache-php, so Apache, PHP, Adminer, Composer, the CGI
+#   path, Adminer's vhost on 12322 and the web control panel are in place and
+#   bt-layer did not re-apply any of them;
+#   the shared tree's conf/adminer-mysql, in the artefact with a server only,
+#   which points Adminer at the MySQL driver, creates the 'adminer' account
+#   with a build time password and makes firstboot.d/35adminer-mysqlpass
+#   executable;
+#   unit.d/mariadb's overlay and conf script, in the artefact with a server
+#   only, which install mysqltuner, link /etc/init.d/mysql to the mariadb
+#   script and remove the anonymous users, the remote root accounts and the
+#   test database;
+#   this recipe's own overlay, which is where the appliance's landing page
+#   comes from.
 
-#ensure datafiles (eg. innodb) are created
-service mysql start
-service mysql stop
+MARIADB_PORT=3306
+# The two loopback addresses, written as literals. On Debian, localhost is not
+# an IPv6 name: /etc/hosts maps ::1 to ip6-localhost and never to localhost,
+# so a server told to bind "localhost" binds IPv4 alone and an appliance that
+# reaches its database over IPv6, which is what this project builds for,
+# finds nothing listening. traps.md has the measurement.
+MARIADB_BIND="::1,127.0.0.1"
+MARIADB_BIND_FILE=/etc/mysql/mariadb.conf.d/99-keel-bind.cnf
+# The account the shared tree's Adminer script creates and whose password
+# firstboot.d/35adminer-mysqlpass sets from DB_PASS at first boot.
+MARIADB_ADMIN_USER=adminer
+# The token the overlay's landing page carries, replaced below with a sentence
+# that is true of the artefact being built.
+PAGE=/var/www/index.php
+PAGE_TOKEN=@KEEL_DB_LOCATION@
 
-# enable cgi
-a2enmod cgi
+# What is actually in this image. default-mysql-server is the package the
+# unit's plan asks for; on Debian 13 it is MariaDB.
+if dpkg-query -W -f '${Status}' default-mysql-server 2>/dev/null \
+        | grep -qx 'install ok installed'; then
+    HAS_SERVER=yes
+else
+    HAS_SERVER=no
+fi
+if [[ "$HAS_SERVER" = yes ]]; then
+    echo "conf.d/main: this image carries a local MariaDB server"
+else
+    echo "conf.d/main: this image carries no local MariaDB server"
+fi
 
-# enable header
-a2enmod headers
-a2enconf remove-upgrade-header
+if [[ "$HAS_SERVER" = yes ]]; then
+    # The server must answer on both loopback families. The unit does not set
+    # this and Debian's own 50-server.cnf binds 127.0.0.1, so it is set here,
+    # by whoever installed the server. The PostgreSQL component does the
+    # equivalent inside its own conf script; that MariaDB's is here and not in
+    # unit-mariadb is recorded in README.rst as the one thing that should move
+    # into the component.
+    install -D -m 0644 /dev/stdin "$MARIADB_BIND_FILE" <<CNF
+# Set by keel-lamp's conf.d/main. Literal addresses, never the name
+# "localhost": on Debian that name resolves to IPv4 only.
+[mysqld]
+bind-address = $MARIADB_BIND
+CNF
 
-# remove unrequired webcp icons (all except those named) 
-cd /var/www/images
-find . -type f ! -name "adminer.png" ! -name "shell.png" ! -name "tab.png" ! -name "webmin.png" -delete
+    # Start once so InnoDB writes its data files into the image, which is what
+    # upstream LAMP does here, and prove the server came up on both families
+    # rather than trusting the file just written.
+    service mysql start
+    for address in ${MARIADB_BIND//,/ }; do
+        mysqladmin --host="$address" --protocol=TCP --port="$MARIADB_PORT" ping
+    done
+
+    # The account the first boot hook will give a real password to exists, and
+    # the hook that will do it is executable. Both are the shared tree's work;
+    # a stack that shipped without them would come up with a database nobody
+    # declared a password for, so they are checked and not assumed.
+    mysql -N -B -e "SELECT COUNT(*) FROM mysql.global_priv \
+        WHERE User='$MARIADB_ADMIN_USER'" | grep -qE '^[1-9]'
+    test -x /usr/lib/inithooks/firstboot.d/35adminer-mysqlpass
+
+    service mysql stop
+else
+    # No server in this image, and nothing may quietly install one: an idle
+    # database server in the artefact an operator chose because their database
+    # is elsewhere is the failure this split exists to prevent. The boot test
+    # asks the running machine the same question.
+    ! dpkg-query -W -f '${Status}' mariadb-server 2>/dev/null \
+        | grep -qx 'install ok installed'
+    test ! -e /etc/init.d/mariadb
+    test ! -d /var/lib/mysql
+
+    # Adminer still has to know which driver it speaks, which is the half of
+    # the shared tree's conf/adminer-mysql that needs no server. The other
+    # half, creating an account, has no meaning without one: the operator
+    # points Adminer at their own server and logs in with its credentials.
+    sed -i '/^.*\$tkl_server/ s|DB_DESC|MySQL|' /etc/adminer/tkl-index.php
+    sed -i '/^.*\$tkl_database/ s|DRIVER|server|' /etc/adminer/tkl-index.php
+fi
+
+# Adminer speaks to MySQL in both artefacts, which is the assertion that the
+# branch above did its job either way. A page still holding the placeholders
+# would offer the operator a driver chooser instead of their database.
+grep -q '"MySQL on "' /etc/adminer/tkl-index.php
+grep -q '\$tkl_database = "server"' /etc/adminer/tkl-index.php
+# Only the two code lines, because the file's own comment names both
+# placeholders to say what the conf script substitutes.
+! grep -qE '^[^/]*\$tkl_(servers|database).*(DB_DESC|DRIVER)' /etc/adminer/tkl-index.php
+
+# The appliance's own landing page. Every LAMP has had one, it belongs to the
+# appliance and not to the operator's site, and it carries the mark until they
+# replace it (docs/brand/README.md, "What not to do"). The one sentence on it
+# that is not the same in both artefacts is written here, from what the image
+# turned out to contain.
+if [[ "$HAS_SERVER" = yes ]]; then
+    location="a MariaDB server on this machine, reached over the loopback on ::1 and 127.0.0.1"
+else
+    location="a MariaDB server you configure elsewhere: this appliance ships the client and the drivers, and no local server"
+fi
+sed -i "s|$PAGE_TOKEN|$location|" "$PAGE"
+! grep -q "$PAGE_TOKEN" "$PAGE"
+# The page is the appliance's, so the mark is on it and must resolve.
+test -s /var/www/keel-lockup.svg
+grep -q 'keel-lockup.svg' "$PAGE"
+
+# PHP can speak to the database. The driver is a package in the plan, and a
+# plan is a request; this is the loaded extension, which is what a page uses.
+php -r 'exit(extension_loaded("mysqli") && extension_loaded("pdo_mysql") ? 0 : 1);'
+
+# The command line client is here in both artefacts, because reaching a
+# database somewhere else needs it just as much as reaching a local one.
+command -v mysql >/dev/null
+
+# fab-plan-resolve keeps a package the parent layer already carries at the
+# parent's version, so the two core packages are upgraded here from the build
+# time source (keel, new in the plan, was installed from it already).
+#
+# The overlay of this layer ships /etc/confconsole/services.txt, which is a
+# conffile of confconsole, so dpkg sees it as locally modified and asks what
+# to do with it. The conf script runs with stdin closed, dpkg reads end of
+# file at the prompt and leaves confconsole "install ok unpacked", which fails
+# this script. Keep the overlay's file without asking. Same block as
+# keel-mariadb, which is where the pattern is maintained.
+export DEBIAN_FRONTEND=noninteractive
+apt-get install -y --only-upgrade \
+    -o Dpkg::Options::=--force-confdef \
+    -o Dpkg::Options::=--force-confold \
+    inithooks confconsole
+
+# A half configured package keeps its new version, so check the state too.
+[[ $(dpkg-query -W -f '${Status}\n' inithooks confconsole keel \
+    | grep -c '^install ok installed$') -eq 3 ]]
+
+# A floor, not a literal: the declarative first boot this stack depends on
+# landed in these versions, and a build that read a stale index would ship a
+# layer whose declared database password never reaches the database.
+while read -r package floor; do
+    installed=$(dpkg-query -W -f '${Version}' "$package")
+    dpkg --compare-versions "$installed" ge "$floor" \
+        || { echo "$package $installed is older than $floor" >&2; exit 1; }
+done <<EOF
+inithooks 2.3.6+keel4
+confconsole 2.2.3+keel2
+keel 0.2.1
+EOF
+dpkg-query -W -f '${Package} ${Version} ${Status}\n' inithooks confconsole keel
+
+# The build time package source is not for appliances: remove it, keep the
+# documented, disabled entry for the future signed repository (overlay).
+rm -f /etc/apt/sources.list.d/keel-staging.list
+rm -rf /srv/keel-apt
+rm -rf /var/lib/apt/lists/*
+grep -q '^Enabled: no' /etc/apt/sources.list.d/keel.sources

@@ -1,2 +1,7 @@
-build
-*.pyc
+build/
+# The database component is cloned into the product directory at build time,
+# pinned by the tag the Makefile names. It is not vendored here: a component
+# is released, pinned and rolled back on its own (decision 0010), and the
+# absence of this directory is what makes the second artefact of this recipe
+# an image with no local database server.
+unit.d/
