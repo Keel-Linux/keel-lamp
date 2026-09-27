@@ -656,3 +656,28 @@ page() {
     [ "$status" -eq 1 ]
     [[ $output == *"must carry"*"no local database server"* ]]
 }
+
+@test "the artefact helpers survive the boot test's set -e (the silent exit of 2026-09-27)" {
+    # bats `run` turns errexit off, so every verdict test above would pass on
+    # a library that kills its caller. The boot test runs under
+    # `set -euo pipefail`, and the first lamp-client run exited after the PHP
+    # verdict with no message at all, because `bt_has_local_database; rc=$?`
+    # is not exempt from errexit when the helper returns 1, which is exactly
+    # what it returns for the artefact with no database server.
+    #
+    # So this one runs them the way the boot test does.
+    cat > "$STUBS/errexit.sh" <<SCRIPT
+set -euo pipefail
+source "$BATS_TEST_DIRNAME/lib/boot-test-lib.sh"
+bt_page_verdict '<title>LAMP appliance</title><img src="/keel-lockup.svg">a MariaDB server you configure elsewhere' lamp-client
+bt_secrets_for lamp-client
+bt_webmin_module_for lamp-client
+bt_default_spec_for lamp-client /t
+bt_page_verdict '<title>LAMP appliance</title><img src="/keel-lockup.svg">a MariaDB server on this machine' lamp
+bt_secrets_for lamp
+SCRIPT
+    run bash "$STUBS/errexit.sh"
+    [ "$status" -eq 0 ]
+    [[ $output == *"you configure elsewhere"* ]]
+    [[ $output == *"on this machine"* ]]
+}

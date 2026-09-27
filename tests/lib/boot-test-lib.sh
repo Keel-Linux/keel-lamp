@@ -582,8 +582,12 @@ bt_secrets_for() {
     # description references. The artefact with no server declares no database
     # password, because there is nothing on the machine for it to be the
     # password of.
-    local rc
-    bt_has_local_database "$1"; rc=$?
+    local rc=0
+    # "cmd || rc=$?" and never "cmd; rc=$?": the second is not exempt from
+    # errexit, so under the boot test's set -e the caller dies here with no
+    # message at all. Measured on the first run of the lapp-client boot test,
+    # which exited silently after the PHP verdict.
+    bt_has_local_database "$1" || rc=$?
     case "$rc" in
         0) printf '%s %s\n' "$BT_SECRETS_COMMON" "$BT_SECRETS_DATABASE" ;;
         1) printf '%s\n' "$BT_SECRETS_COMMON" ;;
@@ -597,8 +601,12 @@ bt_webmin_module_for() {
     # without a server is held to the web module the parent layer put there
     # rather than to nothing: a panel that lost its Apache module would be a
     # regression in either artefact.
-    local rc
-    bt_has_local_database "$1"; rc=$?
+    local rc=0
+    # "cmd || rc=$?" and never "cmd; rc=$?": the second is not exempt from
+    # errexit, so under the boot test's set -e the caller dies here with no
+    # message at all. Measured on the first run of the lapp-client boot test,
+    # which exited silently after the PHP verdict.
+    bt_has_local_database "$1" || rc=$?
     case "$rc" in
         0) printf '%s\n' "$BT_WEBMIN_MODULE_DATABASE" ;;
         1) printf '%s\n' "$BT_WEBMIN_MODULE_WEB" ;;
@@ -609,8 +617,12 @@ bt_webmin_module_for() {
 bt_default_spec_for() {
     # bt_default_spec_for APPLIANCE DIR: the instance description the boot
     # test boots when --spec is not given.
-    local rc
-    bt_has_local_database "$1"; rc=$?
+    local rc=0
+    # "cmd || rc=$?" and never "cmd; rc=$?": the second is not exempt from
+    # errexit, so under the boot test's set -e the caller dies here with no
+    # message at all. Measured on the first run of the lapp-client boot test,
+    # which exited silently after the PHP verdict.
+    bt_has_local_database "$1" || rc=$?
     case "$rc" in
         0) printf '%s/instance.yaml\n' "$2" ;;
         1) printf '%s/instance-client.yaml\n' "$2" ;;
@@ -628,7 +640,7 @@ bt_page_verdict() {
     # The last is the only assertion in this file that differs between the two
     # artefacts, and reading it back off the running machine is what proves
     # the build branched the way the artefact needed.
-    local body=${1-} appliance=${2-} rc wanted unwanted
+    local body=${1-} appliance=${2-} wanted unwanted rc=0
     if [ -z "$body" ]; then
         echo "boot-test: the landing page returned nothing" >&2
         return 1
@@ -650,7 +662,8 @@ bt_page_verdict() {
              "(no '$BT_PAGE_MARK' in it)" >&2
         return 1
     fi
-    bt_has_local_database "$appliance"; rc=$?
+    # See the note in bt_secrets_for: "; rc=$?" is not errexit safe.
+    bt_has_local_database "$appliance" || rc=$?
     case "$rc" in
         0) wanted=$BT_PAGE_LOCAL_MARK; unwanted=$BT_PAGE_REMOTE_MARK ;;
         1) wanted=$BT_PAGE_REMOTE_MARK; unwanted=$BT_PAGE_LOCAL_MARK ;;
