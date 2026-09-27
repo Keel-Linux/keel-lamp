@@ -93,6 +93,10 @@ BT_DB_HOSTS="::1 127.0.0.1"
 # The account conf/adminer-mysql creates and firstboot.d/35adminer-mysqlpass
 # gives the declared password to. The layer is published with it unusable.
 BT_DB_USER=adminer
+# What the server prints when asked who is connected. MariaDB answers
+# user@host, PostgreSQL answers the role alone, so the mark is a constant and
+# the verdict that reads it is the same code in both stacks.
+BT_DB_SESSION_MARK="adminer@"
 # What an image with a local server has in it, and what an image without one
 # must not have. The package is the server as Debian names it; the data
 # directory and the port are what a server that was installed and started
@@ -701,7 +705,7 @@ bt_db_login_verdict() {
         return 1
     fi
     case "$output" in
-        "$BT_DB_USER@"*)
+        "$BT_DB_SESSION_MARK"*)
             echo "boot-test: the database answered on [$host]:$BT_DB_PORT as" \
                  "'$output' with the declared secret"
             return 0
