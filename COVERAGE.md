@@ -59,18 +59,23 @@ repository, and LAPP should be the last copy made.
 
 ## The appliance gate
 
-`appliance / build-and-boot` and `appliance-client / build-and-boot` run
+`appliance / boot-published-layer` and `appliance-client /
+boot-published-layer` run
 through the organization's `test-appliance.yml` on the self-hosted `keel-lxc`
 runner, which fetches the published layer from
 `https://mirror.keellinux.org/layers`, verifies it, assembles it, boots it in
-LXC and runs `tests/boot-test.sh`. Nothing is built there. While a layer is
-not published the job skips with a notice, so the check exists and the
-default branch can require it from the first day.
+LXC and runs `tests/boot-test.sh`. Nothing is built there, so what boots is
+the published layer and not this branch: a pull request that changes a recipe
+is not exercised by these checks, which is why the job is
+`boot-published-layer` and not the old `build-and-boot`. A layer that has never
+been published fails the job rather than passing it (keel-linux/.github pull
+request 12).
 
 ## Plan
 
 - Publish both layers, then require `tests / coverage`,
-  `appliance / build-and-boot`, `appliance-client / build-and-boot` and
+  `appliance / boot-published-layer`,
+  `appliance-client / boot-published-layer` and
   `package / changelog` on the default branch.
 - Move the shared half of the boot test library into `keel-linux/.github`,
   with its own gate there, and leave each appliance its verdicts.

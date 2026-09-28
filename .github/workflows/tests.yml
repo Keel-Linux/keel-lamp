@@ -38,15 +38,20 @@ jobs:
     # fetched from https://mirror.keellinux.org/layers, verified, assembled
     # into a scratch rootfs, booted in LXC and checked by tests/boot-test.sh.
     # Nothing is built there; the build host publishes the layer
-    # (docs/releases-host.md of the keel repository).
+    # (docs/releases-host.md of the keel repository). So what boots is the
+    # layer the mirror publishes, never this branch: a pull request that
+    # changes the recipe is not exercised by these checks, which is why the
+    # reusable job is called boot-published-layer.
     #
     # test-appliance.yml targets the labels "self-hosted, keel-lxc"; a job
     # aimed at a label no runner carries stays queued until GitHub cancels it
     # after 24 hours, so the reusable workflow's contract is that callers gate
     # on the organization variable KEEL_LXC_RUNNER (docs/ci-cd.md section 5 of
-    # the keel repository). While the layer is not published the job skips
-    # with a notice and passes. This job produces the check
-    # "appliance / build-and-boot".
+    # the keel repository). A layer that has never been published fails this
+    # job instead of passing it; the bootstrap exemption for a repository
+    # whose first layer does not exist yet is allow_unpublished, and both
+    # layers here are published, so it is not used. This job produces the
+    # check "appliance / boot-published-layer".
     if: vars.KEEL_LXC_RUNNER == 'true'
     uses: keel-linux/.github/.github/workflows/test-appliance.yml@main
     with:
@@ -65,7 +70,7 @@ jobs:
     # package, no data directory, nothing listening on 3306 and no process.
     # That is the reason the artefact exists, and an idle server shipped in it
     # would be the cheapest failure to miss. This job produces the check
-    # "appliance-client / build-and-boot".
+    # "appliance-client / boot-published-layer".
     if: vars.KEEL_LXC_RUNNER == 'true'
     uses: keel-linux/.github/.github/workflows/test-appliance.yml@main
     with:
