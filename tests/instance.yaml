@@ -1,0 +1,48 @@
+# Instance description of the boot test of the lamp artefact (format:
+# docs/spec.md of the keel repository). IPv6 first, address from the bridge,
+# no certificate request. The passwords are files the test writes into the
+# rootfs before booting, so the first boot is headless and nothing is typed at
+# a console.
+#
+# db_password is here because this artefact has a local database server with
+# an account on it. The boot test proves the password reached the database by
+# logging in with it over both loopback families, which is the difference
+# between this test and the one in tests/instance-client.yaml.
+#
+# This is the throwaway container the gate boots. The description an operator
+# would start from is keel/instance.example.yaml.
+version: 1
+
+instance:
+  hostname: lamp
+  fqdn: lamp.example.org
+
+network:
+  # The container's address comes from the bridge, so the host owns the
+  # interface configuration and 01ipconfig writes nothing.
+  managed_by: host
+  interfaces:
+    eth0:
+      ipv6:
+        method: auto
+
+tls:
+  acme:
+    enabled: false
+
+secrets:
+  root_password:
+    file: /etc/keel/secrets/root_password
+  db_password:
+    file: /etc/keel/secrets/db_password
+
+hub:
+  api_key: skip
+
+security:
+  alerts: skip
+  # A first boot input, not machine state: 95secupdates installs the pending
+  # security updates once. diff does not compare it.
+  updates_at_first_boot: skip
+
+first_login_wizard: false

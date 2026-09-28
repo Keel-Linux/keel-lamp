@@ -1,0 +1,40 @@
+# Instance description of the boot test of the lamp-client artefact (format:
+# docs/spec.md of the keel repository). IPv6 first, address from the bridge,
+# no certificate request.
+#
+# There is no db_password and there is no database server for one to be the
+# password of. That is the whole point of this artefact, and the boot test it
+# belongs to asserts the absence rather than assuming it: no server package,
+# no data directory, no process and nothing listening on the database port.
+#
+# This is the throwaway container the gate boots. The description an operator
+# would start from is keel/instance-client.example.yaml.
+version: 1
+
+instance:
+  hostname: lamp-client
+  fqdn: lamp-client.example.org
+
+network:
+  managed_by: host
+  interfaces:
+    eth0:
+      ipv6:
+        method: auto
+
+tls:
+  acme:
+    enabled: false
+
+secrets:
+  root_password:
+    file: /etc/keel/secrets/root_password
+
+hub:
+  api_key: skip
+
+security:
+  alerts: skip
+  updates_at_first_boot: skip
+
+first_login_wizard: false

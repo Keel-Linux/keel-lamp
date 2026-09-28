@@ -1,11 +1,57 @@
 #include <turnkey/base>
-#include <turnkey/lamp>
 
-libapache2-mod-python    # Apache 2 module that embeds Python within the server
-python3-mysqldb          # A Python interface to MySQL
+/* The web half is the parent layer, apache-php, and fab-plan-resolve keeps a
+   package the parent already carries at the parent's version, so nothing the
+   parent installs is named again here: apache2, libapache2-mod-php, php-cli,
+   libapache2-mod-security2, libapache2-mod-evasive, libapache2-mod-perl2,
+   webmin-apache, webmin-phpini, adminer, libjs-jush and composer.
 
-libapache2-mod-perl2     # Integration of perl with the Apache2 web server
-libdbd-mysql-perl        # A Perl5 database interface to the MySQL database
+   The database server, python3-pymysql and webmin-mysql are the plan of the
+   unit.d/mariadb component, which fab resolves together with this one when
+   the unit is present. They are not named here, and that is what makes the
+   second artefact of this recipe an image with no server: remove the unit and
+   the three packages go with it, rather than being left behind by a name in
+   this file. */
 
-php-xdebug
-php-pear
+/* The four packages that make this stack MariaDB's rather than another
+   engine's. LAPP names the same four roles with the PostgreSQL packages and
+   nothing else differs, which is the point of decision 0013's layer model.
+
+   Each is needed in both artefacts: the client and the drivers are how the
+   stack reaches a database, and where that database lives is a setting, not
+   a package. */
+mariadb-client           /* the command line client */
+php-mysql                /* the PHP driver, which is what the stack runs on */
+libdbd-mysql-perl        /* the Perl DBI driver, for mod_perl2 from the parent */
+python3-mysqldb          /* the Python driver */
+
+/* project packages, resolved from the build host's staging repository: the
+   declarative first boot that turns secrets.db_password into DB_PASS lives in
+   inithooks, the console screens in confconsole, and keel is the instance
+   description tool the appliance answers keel inspect with. core carries the
+   stock inithooks and confconsole and no keel at all, so conf.d/main upgrades
+   the two and checks the floor. */
+inithooks
+confconsole
+keel
+
+/* Deliberately not here, and each for its own reason, all four named in the
+   changelog because dropping a package upstream ships is a content decision:
+
+   libapache2-mod-python  gone from Debian 13, and gone upstream long before
+                          that; mod_python has no maintained release for
+                          Apache 2.4.
+   php-xdebug             a step debugger and profiler. It belongs on a
+                          developer's machine and not switched on in a
+                          published appliance, where it costs performance and
+                          reports internals to whoever can reach a page.
+   php-pear               superseded by composer, which the parent already
+                          carries, and which both stacks use.
+   python3-pygresql       LAPP's second Python driver. One driver per language
+                          per stack, so this stack names python3-mysqldb and
+                          LAPP names python3-psycopg2.
+
+   The first three are upstream LAMP's and have no LAPP counterpart; the
+   fourth is upstream LAPP's and has no LAMP counterpart. Keeping them would
+   make the two recipes differ in something other than the database, which is
+   the one thing the composition is being measured on. */
