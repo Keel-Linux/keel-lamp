@@ -145,6 +145,15 @@ command -v mysql >/dev/null
 # file at the prompt and leaves confconsole "install ok unpacked", which fails
 # this script. Keep the overlay's file without asking. Same block as
 # keel-mariadb, which is where the pattern is maintained.
+#
+# The build time archive has to win over every other source here: a
+# bootstrap from before Keel-Linux/common#30 pins TurnKey's archive at 999.
+# It used to win through the overlay's /etc/apt/preferences.d/keel at 1001,
+# which then shipped in the image and downgraded every package newer than the
+# archive's (tracker#23). This pin names the staging distribution by its
+# Label, exists only during the build and goes with the build time source.
+printf 'Package: *\nPin: release l=Keel Linux staging\nPin-Priority: 1001\n' \
+    > /etc/apt/preferences.d/keel-staging
 export DEBIAN_FRONTEND=noninteractive
 apt-get install -y --only-upgrade \
     -o Dpkg::Options::=--force-confdef \
@@ -169,9 +178,16 @@ keel 0.2.1
 EOF
 dpkg-query -W -f '${Package} ${Version} ${Status}\n' inithooks confconsole keel
 
-# The build time package source is not for appliances: remove it, keep the
-# documented, disabled entry for the future signed repository (overlay).
+# The build time package source is not for appliances: remove it and its pin.
+# The appliance's own Keel source and its 990 pin are common's
+# (overlays/turnkey.d/keel-apt), so nothing the image keeps may still name
+# the build time archive.
 rm -f /etc/apt/sources.list.d/keel-staging.list
+rm -f /etc/apt/preferences.d/keel-staging
 rm -rf /srv/keel-apt
 rm -rf /var/lib/apt/lists/*
-grep -q '^Enabled: no' /etc/apt/sources.list.d/keel.sources
+if grep -rlsE 'trixie-staging|/srv/keel-apt|l=Keel Linux staging' /etc/apt/sources.list \
+    /etc/apt/sources.list.d /etc/apt/preferences /etc/apt/preferences.d; then
+    echo "the apt files above still name the build time archive" >&2
+    exit 1
+fi

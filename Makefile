@@ -79,8 +79,9 @@ include $(FAB_PATH)/common/mk/turnkey.mk
 # The project's own packages (inithooks, confconsole, keel) come from the
 # build host's APT repository during the build only. The repository is copied
 # into the bootstrap and listed as a [trusted=yes] file source, because the
-# staging distribution is unsigned; conf.d/main removes both from the image
-# and leaves the future apt.keellinux.org entry in place, disabled. Same block
+# staging distribution is unsigned; conf.d/main pins it for the build only and
+# removes the source, the copy and the pin from the image. The appliance's own
+# Keel source and pin are common's (overlays/turnkey.d/keel-apt). Same block
 # as keel-mariadb and keel-nodebb, which is where the pattern is maintained.
 KEEL_APT_REPO ?= /srv/keel-apt/repo
 KEEL_APT_DIST ?= trixie-staging
