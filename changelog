@@ -1,4 +1,4 @@
-turnkey-lamp-19.0 (1) turnkey; urgency=low
+turnkey-lamp-19.0 (2) turnkey; urgency=low
 
   * The overlay no longer ships /etc/apt/sources.list.d/keel.sources
     (apt.keellinux.org, disabled) or /etc/apt/preferences.d/keel (the Keel
@@ -11,6 +11,10 @@ turnkey-lamp-19.0 (1) turnkey; urgency=low
     then fails if any apt source or pin of the image still names the build
     time archive, in place of the check that keel.sources was disabled.
     tests/apt-files.bats checks the recipe.
+
+ -- Marcos Mendez <mendez.foto@gmail.com>  Fri, 02 Oct 2026 17:00:00 +0000
+
+turnkey-lamp-19.0 (1) turnkey; urgency=low
 
   * LAMP is rebuilt as a child of the apache-php layer with MariaDB carried
     as a fab unit, instead of a single recipe on core that installs the web
